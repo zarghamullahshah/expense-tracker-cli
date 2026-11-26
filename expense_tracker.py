@@ -4,10 +4,13 @@ Usage:
     python expense_tracker.py add 12.50 Food "Lunch"
     python expense_tracker.py list
     python expense_tracker.py summary
+    python expense_tracker.py monthly 2026-11
+    python expense_tracker.py monthly
 """
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import date
 
@@ -64,6 +67,28 @@ class ExpenseTracker:
             totals[e["category"]] = round(totals.get(e["category"], 0) + e["amount"], 2)
         return totals
 
+    def monthly_summary(self, month=None):
+        """Return totals for one month ("YYYY-MM", defaults to the current month).
+
+        Result: {"month", "total", "count", "by_category"}.
+        """
+        if month is None:
+            month = date.today().strftime("%Y-%m")
+        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", str(month)):
+            raise ValueError("Month must be in YYYY-MM format, e.g. 2026-11.")
+        entries = [e for e in self.expenses if e["date"].startswith(month)]
+        by_category = {}
+        for e in entries:
+            by_category[e["category"]] = round(
+                by_category.get(e["category"], 0) + e["amount"], 2
+            )
+        return {
+            "month": month,
+            "total": round(sum(e["amount"] for e in entries), 2),
+            "count": len(entries),
+            "by_category": by_category,
+        }
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Track personal expenses from the command line.")
@@ -77,6 +102,10 @@ def main(argv=None):
 
     sub.add_parser("list", help="List all expenses.")
     sub.add_parser("summary", help="Show totals overall and per category.")
+
+    p_monthly = sub.add_parser("monthly", help="Show totals for one month (YYYY-MM).")
+    p_monthly.add_argument("month", nargs="?", default=None,
+                           help="Month as YYYY-MM; defaults to the current month.")
 
     args = parser.parse_args(argv)
     tracker = ExpenseTracker(args.file)
@@ -96,6 +125,16 @@ def main(argv=None):
     elif args.command == "summary":
         print(f"Total spent: {tracker.total():.2f} across {len(tracker.list_all())} expense(s).")
         for category, amount in sorted(tracker.total_by_category().items()):
+            print(f"  {category:<15} {amount:.2f}")
+    elif args.command == "monthly":
+        try:
+            result = tracker.monthly_summary(args.month)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(f"{result['month']}: {result['total']:.2f} across "
+              f"{result['count']} expense(s).")
+        for category, amount in sorted(result["by_category"].items()):
             print(f"  {category:<15} {amount:.2f}")
     return 0
 

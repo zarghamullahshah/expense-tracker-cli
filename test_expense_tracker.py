@@ -47,6 +47,41 @@ class ExpenseTrackerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.tracker.add(10, "  ")
 
+    def test_monthly_summary_multiple_categories(self):
+        self.tracker.add(12.50, "Food", "Lunch", on=date(2026, 11, 3))
+        self.tracker.add(5.00, "Food", "Coffee", on=date(2026, 11, 10))
+        self.tracker.add(30.00, "Transport", "Monthly pass", on=date(2026, 11, 1))
+        self.tracker.add(99.00, "Food", "Groceries", on=date(2026, 10, 28))
+        result = self.tracker.monthly_summary("2026-11")
+        self.assertEqual(result["month"], "2026-11")
+        self.assertEqual(result["total"], 47.50)
+        self.assertEqual(result["count"], 3)
+        self.assertEqual(result["by_category"], {"Food": 17.50, "Transport": 30.00})
+
+    def test_monthly_summary_empty_month(self):
+        self.tracker.add(12.50, "Food", "Lunch", on=date(2026, 11, 3))
+        result = self.tracker.monthly_summary("2026-09")
+        self.assertEqual(result["month"], "2026-09")
+        self.assertEqual(result["total"], 0)
+        self.assertEqual(result["count"], 0)
+        self.assertEqual(result["by_category"], {})
+
+    def test_monthly_summary_defaults_to_current_month(self):
+        today = date.today()
+        self.tracker.add(20.00, "Food", "Dinner", on=today)
+        other_month = date(2025, 1, 15) if today.month != 1 else date(2025, 2, 15)
+        self.tracker.add(50.00, "Books", "Novel", on=other_month)
+        result = self.tracker.monthly_summary()
+        self.assertEqual(result["month"], today.strftime("%Y-%m"))
+        self.assertEqual(result["total"], 20.00)
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["by_category"], {"Food": 20.00})
+
+    def test_monthly_summary_rejects_bad_month(self):
+        for bad in ("2026-13", "Nov 2026", "2026-1", 202611):
+            with self.assertRaises(ValueError):
+                self.tracker.monthly_summary(bad)
+
 
 if __name__ == "__main__":
     unittest.main()

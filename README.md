@@ -19,6 +19,11 @@ python expense_tracker.py list
 # Totals overall and per category
 python expense_tracker.py summary
 
+# Monthly summary: per-category totals, overall total and count for one month
+# (defaults to the current month when no month is given)
+python expense_tracker.py monthly 2026-11
+python expense_tracker.py monthly
+
 # Use a different storage file
 python expense_tracker.py --file my-expenses.json list
 ```
