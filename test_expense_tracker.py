@@ -1,3 +1,4 @@
+import csv
 import os
 import tempfile
 import unittest
@@ -81,6 +82,52 @@ class ExpenseTrackerTests(unittest.TestCase):
         for bad in ("2026-13", "Nov 2026", "2026-1", 202611):
             with self.assertRaises(ValueError):
                 self.tracker.monthly_summary(bad)
+
+    def _read_csv(self, path):
+        with open(path, newline="", encoding="utf-8") as fh:
+            return list(csv.reader(fh))
+
+    def test_export_csv_writes_all_expenses(self):
+        self.tracker.add(12.50, "Food", "Lunch", on=date(2026, 11, 3))
+        self.tracker.add(5.00, "Transport", "Bus fare", on=date(2026, 11, 10))
+        out = self.path + ".csv"
+        try:
+            self.assertEqual(self.tracker.export_csv(out), 2)
+            rows = self._read_csv(out)
+        finally:
+            if os.path.exists(out):
+                os.remove(out)
+        self.assertEqual(rows[0], ["date", "amount", "category", "note"])
+        self.assertEqual(rows[1], ["2026-11-03", "12.50", "Food", "Lunch"])
+        self.assertEqual(rows[2], ["2026-11-10", "5.00", "Transport", "Bus fare"])
+
+    def test_export_csv_filters_by_month_and_quotes_notes(self):
+        self.tracker.add(12.50, "Food", 'Lunch, "with team"', on=date(2026, 11, 3))
+        self.tracker.add(99.00, "Food", "Groceries", on=date(2026, 10, 28))
+        out = self.path + ".csv"
+        try:
+            self.assertEqual(self.tracker.export_csv(out, "2026-11"), 1)
+            rows = self._read_csv(out)
+        finally:
+            if os.path.exists(out):
+                os.remove(out)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1], ["2026-11-03", "12.50", "Food", 'Lunch, "with team"'])
+
+    def test_export_csv_empty_tracker_writes_header_only(self):
+        out = self.path + ".csv"
+        try:
+            self.assertEqual(self.tracker.export_csv(out), 0)
+            rows = self._read_csv(out)
+        finally:
+            if os.path.exists(out):
+                os.remove(out)
+        self.assertEqual(rows, [["date", "amount", "category", "note"]])
+
+    def test_export_csv_rejects_bad_month(self):
+        for bad in ("2026-13", "Nov 2026", "2026-1"):
+            with self.assertRaises(ValueError):
+                self.tracker.export_csv(self.path + ".csv", bad)
 
 
 if __name__ == "__main__":

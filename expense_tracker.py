@@ -6,8 +6,11 @@ Usage:
     python expense_tracker.py summary
     python expense_tracker.py monthly 2026-11
     python expense_tracker.py monthly
+    python expense_tracker.py export expenses.csv
+    python expense_tracker.py export nov.csv 2026-11
 """
 import argparse
+import csv
 import json
 import os
 import re
@@ -89,6 +92,24 @@ class ExpenseTracker:
             "by_category": by_category,
         }
 
+    def export_csv(self, path, month=None):
+        """Write expenses to a CSV file (header: date,amount,category,note).
+
+        When month ("YYYY-MM") is given, only that month's expenses are
+        exported. Returns the number of expenses written.
+        """
+        if month is not None and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", str(month)):
+            raise ValueError("Month must be in YYYY-MM format, e.g. 2026-11.")
+        entries = self.expenses
+        if month is not None:
+            entries = [e for e in entries if e["date"].startswith(month)]
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["date", "amount", "category", "note"])
+            for e in entries:
+                writer.writerow([e["date"], f"{e['amount']:.2f}", e["category"], e["note"]])
+        return len(entries)
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Track personal expenses from the command line.")
@@ -106,6 +127,11 @@ def main(argv=None):
     p_monthly = sub.add_parser("monthly", help="Show totals for one month (YYYY-MM).")
     p_monthly.add_argument("month", nargs="?", default=None,
                            help="Month as YYYY-MM; defaults to the current month.")
+
+    p_export = sub.add_parser("export", help="Export expenses to a CSV file.")
+    p_export.add_argument("file", help="Path to write the CSV file to.")
+    p_export.add_argument("month", nargs="?", default=None,
+                          help="Only export one month (YYYY-MM); defaults to all expenses.")
 
     args = parser.parse_args(argv)
     tracker = ExpenseTracker(args.file)
@@ -136,6 +162,13 @@ def main(argv=None):
               f"{result['count']} expense(s).")
         for category, amount in sorted(result["by_category"].items()):
             print(f"  {category:<15} {amount:.2f}")
+    elif args.command == "export":
+        try:
+            count = tracker.export_csv(args.file, args.month)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(f"Exported {count} expense(s) to {args.file}.")
     return 0
 
 

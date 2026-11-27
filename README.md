@@ -24,6 +24,10 @@ python expense_tracker.py summary
 python expense_tracker.py monthly 2026-11
 python expense_tracker.py monthly
 
+# Export expenses to CSV (header: date,amount,category,note)
+python expense_tracker.py export expenses.csv
+python expense_tracker.py export nov.csv 2026-11   # one month only
+
 # Use a different storage file
 python expense_tracker.py --file my-expenses.json list
 ```
